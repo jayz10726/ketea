@@ -5,14 +5,19 @@
 <div x-data="{ addOpen:false, editOpen:false, ec:{} }">
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-    <p style="font-size:.855rem;color:#64748b">Track stock levels — red items are below reorder level</p>
-    <button @click="addOpen=true" class="btn btn-p">+ Add Item</button>
+    <p style="font-size:.855rem;color:#64748b">Track stock levels — red items need restocking</p>
+    @if(in_array(auth()->user()->role,['admin','storekeeper']))
+        <button @click="addOpen=true" class="btn btn-p">+ Add Item</button>
+    @else
+        <span style="background:#eff6ff;color:#1e40af;padding:6px 14px;border-radius:20px;
+            font-size:.78rem;font-weight:600">📖 View Only Mode</span>
+    @endif
 </div>
 
 @php $lowCount = $consumables->filter(fn($c)=>$c->isLowStock())->count(); @endphp
 @if($lowCount > 0)
 <div class="low-bar">
-    ⚠️ <strong>{{ $lowCount }} item(s)</strong> are below reorder level and need restocking immediately.
+    ⚠️ <strong>{{ $lowCount }} item(s)</strong> are below reorder level and need immediate restocking.
 </div>
 @endif
 
@@ -43,7 +48,10 @@
                 <tr>
                     <th>#</th><th>Name</th><th>Category</th>
                     <th>In Stock</th><th>Reorder Level</th><th>Unit</th>
-                    <th>Status</th><th>Actions</th>
+                    <th>Status</th>
+                    @if(in_array(auth()->user()->role,['admin','storekeeper']))
+                        <th>Actions</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -53,7 +61,7 @@
                     <td style="font-weight:600;color:#1e293b">{{ $c->name }}</td>
                     <td><span class="badge bs">{{ $c->category }}</span></td>
                     <td>
-                        <span style="font-family:monospace;font-size:.9rem;font-weight:700;
+                        <span style="font-family:monospace;font-size:.95rem;font-weight:700;
                             color:{{ $c->isLowStock() ? '#dc2626' : '#0d9488' }}">
                             {{ $c->quantity_in_stock }}
                         </span>
@@ -64,9 +72,10 @@
                         @if($c->isLowStock())
                             <span class="badge br">⚠ Low Stock</span>
                         @else
-                            <span class="badge bg">OK</span>
+                            <span class="badge bg">✓ Healthy</span>
                         @endif
                     </td>
+                    @if(in_array(auth()->user()->role,['admin','storekeeper']))
                     <td>
                         <div style="display:flex;gap:6px">
                             <button @click="editOpen=true; ec={{ json_encode($c) }}"
@@ -78,10 +87,12 @@
                             </form>
                         </div>
                     </td>
+                    @endif
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" style="text-align:center;padding:52px;color:#94a3b8">
+                    <td colspan="{{ in_array(auth()->user()->role,['admin','storekeeper']) ? '8' : '7' }}"
+                        style="text-align:center;padding:52px;color:#94a3b8">
                         <div style="font-size:2rem;margin-bottom:8px">📦</div>
                         No consumables found.
                     </td>
@@ -93,7 +104,8 @@
     <div class="pag">{{ $consumables->links() }}</div>
 </div>
 
-<!-- ADD MODAL -->
+<!-- ADD MODAL (Only for admin/storekeeper) -->
+@if(in_array(auth()->user()->role,['admin','storekeeper']))
 <div class="mo" x-show="addOpen" x-cloak @click.self="addOpen=false">
     <div class="md">
         <div class="md-hdr">
@@ -106,33 +118,44 @@
                 <div class="f2">
                     <div class="fg">
                         <label class="fl">Name <em>*</em></label>
-                        <input type="text" name="name" class="fi" required placeholder="e.g. A4 Paper">
+                        <input type="text" name="name" class="fi @error('name') err @enderror"
+                               value="{{ old('name') }}" required placeholder="e.g. A4 Paper">
+                        @error('name')<div class="field-err">{{ $message }}</div>@enderror
                     </div>
                     <div class="fg">
                         <label class="fl">Category <em>*</em></label>
-                        <select name="category" class="fse" required>
+                        <select name="category" class="fse @error('category') err @enderror" required>
                             <option value="">Select…</option>
-                            <option>Stationery</option>
-                            <option>Consumables</option>
-                            <option>Cleaning</option>
+                            <option {{ old('category')==='Stationery' ?'selected':'' }}>Stationery</option>
+                            <option {{ old('category')==='Consumables'?'selected':'' }}>Consumables</option>
+                            <option {{ old('category')==='Cleaning'   ?'selected':'' }}>Cleaning</option>
                         </select>
+                        @error('category')<div class="field-err">{{ $message }}</div>@enderror
                     </div>
                     <div class="fg">
                         <label class="fl">Quantity in Stock <em>*</em></label>
-                        <input type="number" name="quantity_in_stock" class="fi" required min="0" value="0">
+                        <input type="number" name="quantity_in_stock"
+                               class="fi @error('quantity_in_stock') err @enderror"
+                               value="{{ old('quantity_in_stock',0) }}" required min="0">
+                        @error('quantity_in_stock')<div class="field-err">{{ $message }}</div>@enderror
                     </div>
                     <div class="fg">
                         <label class="fl">Reorder Level <em>*</em></label>
-                        <input type="number" name="reorder_level" class="fi" required min="0" value="5">
+                        <input type="number" name="reorder_level"
+                               class="fi @error('reorder_level') err @enderror"
+                               value="{{ old('reorder_level',5) }}" required min="0">
+                        @error('reorder_level')<div class="field-err">{{ $message }}</div>@enderror
                     </div>
                     <div class="fg">
                         <label class="fl">Unit <em>*</em></label>
-                        <input type="text" name="unit" class="fi" required placeholder="e.g. reams, pcs, boxes">
+                        <input type="text" name="unit" class="fi @error('unit') err @enderror"
+                               value="{{ old('unit') }}" required placeholder="e.g. reams, pcs, boxes">
+                        @error('unit')<div class="field-err">{{ $message }}</div>@enderror
                     </div>
                 </div>
                 <div class="fg">
                     <label class="fl">Notes</label>
-                    <textarea name="notes" class="ft" placeholder="Any notes…"></textarea>
+                    <textarea name="notes" class="ft">{{ old('notes') }}</textarea>
                 </div>
             </div>
             <div class="md-foot">
@@ -168,11 +191,13 @@
                     </div>
                     <div class="fg">
                         <label class="fl">Quantity in Stock <em>*</em></label>
-                        <input type="number" name="quantity_in_stock" class="fi" :value="ec.quantity_in_stock" required min="0">
+                        <input type="number" name="quantity_in_stock" class="fi"
+                               :value="ec.quantity_in_stock" required min="0">
                     </div>
                     <div class="fg">
                         <label class="fl">Reorder Level <em>*</em></label>
-                        <input type="number" name="reorder_level" class="fi" :value="ec.reorder_level" required min="0">
+                        <input type="number" name="reorder_level" class="fi"
+                               :value="ec.reorder_level" required min="0">
                     </div>
                     <div class="fg">
                         <label class="fl">Unit <em>*</em></label>
@@ -187,6 +212,7 @@
         </form>
     </div>
 </div>
+@endif
 
 </div>
 @endsection

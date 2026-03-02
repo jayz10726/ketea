@@ -15,19 +15,26 @@ Route::middleware(['auth'])->group(function () {
     // Dashboard — all roles
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Assets — admin & storekeeper
-    Route::resource('assets', AssetController::class)
+    // Consumables — VISIBLE TO ALL (view only for staff)
+    Route::get('consumables', [ConsumableController::class, 'index'])->name('consumables.index');
+    Route::post('consumables', [ConsumableController::class, 'store'])
+         ->name('consumables.store')
+         ->middleware('role:admin,storekeeper');
+    Route::put('consumables/{consumable}', [ConsumableController::class, 'update'])
+         ->name('consumables.update')
+         ->middleware('role:admin,storekeeper');
+    Route::delete('consumables/{consumable}', [ConsumableController::class, 'destroy'])
+         ->name('consumables.destroy')
          ->middleware('role:admin,storekeeper');
 
-    // Consumables — admin & storekeeper
-    Route::resource('consumables', ConsumableController::class)
+    // Assets — admin & storekeeper only
+    Route::resource('assets', AssetController::class)
          ->middleware('role:admin,storekeeper');
 
     // Issuances — admin & storekeeper
     Route::resource('issuances', IssuanceController::class)
          ->middleware('role:admin,storekeeper');
 
-    // Return an item
     Route::post('issuances/{issuance}/return', [IssuanceController::class, 'returnItem'])
          ->name('issuances.return')
          ->middleware('role:admin,storekeeper');
